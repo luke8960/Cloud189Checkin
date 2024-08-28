@@ -1,27 +1,20 @@
-###syntax11 = docker/dockerfile:1.3
-
 FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:8.0-jammy AS build
+ARG TARGETARCH
+RUN arch=$TARGETARCH \
+    && if [ "$TARGETARCH" = "amd64" ]; then arch="x64"; fi \
+    && echo $arch > /tmp/arch
+
 WORKDIR /src
 ENV TZ=Asia/Shanghai
 RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 
 COPY . .
 
-RUN sed -i s@/deb.debian.org/@/mirrors.ustc.edu.cn/@g /etc/apt/sources.list && \
-sed -i s@/snapshot.debian.org/@/mirrors.ustc.edu.cn/@g /etc/apt/sources.list && \
-sed -i s@/security.debian.org/@/mirrors.ustc.edu.cn/@g /etc/apt/sources.list && \
-sed -i s/cn.archive.ubuntu.com/mirrors.ustc.edu.cn/g /etc/apt/sources.list && \
-sed -i s/archive.ubuntu.com/mirrors.ustc.edu.cn/g /etc/apt/sources.list && \
-sed -i s/security.ubuntu.com/mirrors.ustc.edu.cn/g /etc/apt/sources.list && \
-apt-get update -y && \
-apt-get install clang zlib1g-dev -y
-
-RUN dotnet restore Cloud189Checkin/Cloud189Checkin.csproj -s https://nuget.cdn.azure.cn/v3/index.json
-RUN dotnet publish Cloud189Checkin/Cloud189Checkin.csproj -c Release -o /app -nowarn:cs0168,cs0105
-
+RUN bash aot.sh
 RUN find /app -name "*.pdb"  | xargs rm -f
 RUN find /app -name "*.dbg"  | xargs rm -f
 RUN rm -f /app/appsettings.Development.json
+RUN rm -f /app/Cloud189Checkin.xml
 
 #移除 OSX Windows 下的库
 RUN rm -rf /app/runtimes/osx* /app/runtimes/win* /app/runtimes/*x86 /app/runtimes/linux-armel /app/runtimes/unix
@@ -31,6 +24,7 @@ ARG TARGETARCH
 RUN arch=$TARGETARCH \
     && if [ "$TARGETARCH" = "amd64" ]; then arch="x64"; fi \
     && echo $arch > /tmp/arch
+RUN echo $arch $ $TARGETARCH
 WORKDIR /app
 EXPOSE 80
 ENV TZ=Asia/Shanghai
